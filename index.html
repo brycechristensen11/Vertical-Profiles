@@ -1,283 +1,908 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Field Data Entry Pro</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <style>
-        body { background-color: #f8f9fa; padding-top: 20px; }
-        .card { box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .table-responsive { background: white; border-radius: 8px; }
-        .btn-sync { white-space: nowrap; }
-        .coord-input { min-width: 100px; font-size: 0.85rem; }
-        .table th { font-size: 0.85rem; vertical-align: middle; }
-    </style>
-</head>
-<body oninput="saveData()"> <!-- Autosave on any input change -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Range Test Points Calculator - Google Maps Edition</title>
 
-<div class="container-fluid">
-    <header class="mb-4 d-flex justify-content-between align-items-center">
-        <h2 class="text-primary">Field Data Entry</h2>
-        <button class="btn btn-outline-danger btn-sm" onclick="clearAllData()">Clear All Data</button>
+  <!-- Bootstrap 5 CSS via CDN without integrity attributes -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <!-- Bootstrap Icons via CDN without integrity attributes -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <style>
+    :root {
+      --brand-primary: #1d4ed8;
+      --brand-success: #059669;
+      --brand-accent: #ea4335;
+      --card-radius: 0.85rem;
+    }
+
+    body {
+      background-color: #f8fafc;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      min-height: 100vh;
+    }
+
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: var(--card-radius);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+      overflow: hidden;
+    }
+
+    .card-header {
+      font-weight: 600;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .mono-font {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.84rem;
+    }
+
+    .table-container {
+      max-height: 480px;
+      overflow-y: auto;
+    }
+
+    .table th {
+      position: sticky;
+      top: 0;
+      background-color: #0f172a;
+      color: #f8fafc;
+      z-index: 2;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .btn-touch {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .distance-label {
+      min-width: 42px;
+      justify-content: center;
+      font-weight: 700;
+      color: #475569;
+      background-color: #f1f5f9;
+    }
+
+    .gmaps-banner {
+      background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+      border: 1.5px solid #bfdbfe;
+    }
+
+    .point-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    .badge-origin {
+      background-color: #2563eb;
+      color: #ffffff;
+    }
+
+    .badge-target {
+      background-color: #059669;
+      color: #ffffff;
+    }
+
+    .pin-pill {
+      font-size: 0.78rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 20px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+  </style>
+</head>
+<body class="p-2 p-md-3">
+  <div class="container-fluid max-w-7xl">
+    <header class="d-flex flex-wrap justify-content-between align-items-center mb-3 p-3 bg-white border rounded-3 shadow-sm">
+      <div class="d-flex align-items-center gap-2 mb-2 mb-md-0">
+        <div class="bg-primary text-white rounded-3 p-2 d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+          <i class="bi bi-geo-alt-fill fs-4"></i>
+        </div>
+        <div>
+          <h1 class="h5 mb-0 fw-bold">Range Test Points Calculator</h1>
+          <small class="text-muted">Calculates GPS offsets & loads all points into Google Maps</small>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span id="storageBadge" class="badge bg-secondary py-2 px-3">
+          <i class="bi bi-database me-1"></i>0 Stored Points
+        </span>
+      </div>
     </header>
 
-    <div class="card">
-        <div class="card-body">
-            <div class="row g-3">
-                <div class="col-md-2">
-                    <label class="form-label">Initials</label>
-                    <input type="text" id="initials" class="form-control" placeholder="JD">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Res</label>
-                    <input type="text" id="res" class="form-control" placeholder="Site Name">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Date</label>
-                    <div class="input-group">
-                        <input type="date" id="fieldDate" class="form-control">
-                        <button class="btn btn-outline-secondary" onclick="setCurrentDate()">Today</button>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">VP Day Num</label>
-                    <input type="number" id="vpDay" class="form-control">
-                </div>
+    <div class="card gmaps-banner mb-3 shadow-sm">
+      <div class="card-body p-3 p-md-4">
+        <div class="row align-items-center g-3">
+          <div class="col-12 col-lg-7">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="bi bi-google text-danger fs-3"></i>
+              <h2 class="h5 mb-0 fw-bold">Load Points into Google Maps</h2>
+              <span class="badge bg-success-subtle text-success border border-success-subtle">No Iframe Blocking</span>
             </div>
+            <p class="text-muted small mb-2">
+              View your <strong>origin coordinate</strong> and <strong>all calculated range points</strong> together directly in Google Maps. 
+              Opens a unified multi-point view in a clean new tab or launches the Google Maps app natively on mobile.
+            </p>
+            <div id="pointsSummaryPills" class="d-flex flex-wrap gap-2 align-items-center">
+              <span class="text-muted small">No active test points loaded yet.</span>
+            </div>
+          </div>
+          <div class="col-12 col-lg-5">
+            <div class="d-grid gap-2">
+              <button type="button" id="btnOpenAllInGoogleMaps" class="btn btn-primary btn-touch fw-bold shadow-sm">
+                <i class="bi bi-box-arrow-up-right me-2"></i>Open All Points in Google Maps
+              </button>
+              <div class="btn-group w-100" role="group">
+                <button type="button" id="btnExportKml" class="btn btn-outline-danger btn-sm py-2">
+                  <i class="bi bi-globe-americas me-1"></i>Download KML for Google My Maps / Earth
+                </button>
+                <button type="button" id="btnCopyMapLink" class="btn btn-outline-secondary btn-sm py-2" title="Copy Google Maps multi-point link">
+                  <i class="bi bi-link-45deg me-1"></i>Copy Link
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     </div>
 
-    <div class="table-responsive shadow-sm">
-        <table class="table table-hover align-middle mb-0" id="entryTable">
-            <thead class="table-dark">
-                <tr>
-                    <th>Transect</th>
-                    <th>Profile</th>
-                    <th>Depth (m)</th>
-                    <th>Secchi Down</th>
-                    <th>Secchi Up</th>
-                    <th>Time (24h)</th>
-                    <th>Latitude</th>
-                    <th>Longitude</th>
-                    <th>Air Temp (C)</th>
-                    <th>Wind Spd (m/s)</th>
-                    <th>Wind Dir</th>
-                    <th style="min-width: 150px;">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="tableBody">
-                <!-- Data loaded via JS -->
-            </tbody>
-        </table>
-    </div>
-
-    <div class="mt-4 mb-5 d-flex flex-wrap gap-2">
-        <button class="btn btn-secondary" onclick="addRow()">+ Add Row</button>
-        <button class="btn btn-primary" onclick="exportCSV()">Export to .CSV</button>
-    </div>
-</div>
-
-<script>
-    let rowCount = 0;
-
-    // 1. LOAD DATA ON STARTUP
-    window.onload = () => {
-        loadData();
-    };
-
-    function setCurrentDate() {
-        const now = new Date();
-        document.getElementById('fieldDate').value = now.toISOString().split('T')[0];
-        saveData();
-    }
-
-    function addRow(data = null) {
-        rowCount++;
-        const tbody = document.getElementById('tableBody');
-        const newRow = document.createElement('tr');
-        newRow.id = `row-${rowCount}`;
-        newRow.innerHTML = `
-            <td><input type="text" class="form-control t-transect" value="${data ? data.transect : ''}"></td>
-            <td><input type="number" class="form-control t-profile" value="${data ? data.profile : ''}"></td>
-            <td><input type="number" step="0.1" class="form-control t-depth" value="${data ? data.depth : ''}"></td>
-            <td><input type="number" step="0.01" class="form-control t-secchi-down" value="${data ? data.secchiDown : ''}"></td>
-            <td><input type="number" step="0.01" class="form-control t-secchi-up" value="${data ? data.secchiUp : ''}"></td>
-            <td><input type="text" class="form-control t-time" value="${data ? data.time : ''}"></td>
-            <td><input type="text" class="form-control coord-input t-lat" value="${data ? data.lat : ''}"></td>
-            <td><input type="text" class="form-control coord-input t-lon" value="${data ? data.lon : ''}"></td>
-            <td><input type="number" step="0.1" class="form-control t-temp" value="${data ? data.temp : ''}"></td>
-            <td><input type="number" step="0.1" class="form-control t-wind-spd" value="${data ? data.windSpd : ''}"></td>
-            <td><input type="text" class="form-control t-wind-dir" value="${data ? data.windDir : ''}"></td>
-            <td>
-                <div class="btn-group">
-                    <button class="btn btn-sm btn-success btn-sync" onclick="autoFillRow('row-${rowCount}')">Auto</button>
-                    <button class="btn btn-sm btn-danger" onclick="removeRow('row-${rowCount}')">Del</button>
-                </div>
-            </td>
-        `;
-        tbody.appendChild(newRow);
-        if (!data) saveData(); // Save if it's a manually added new row
-    }
-
-    function removeRow(rowId) {
-        if (confirm("Are you sure you want to delete this row?")) {
-            const row = document.getElementById(rowId);
-            row.remove();
-            saveData();
-        }
-    }
-
-    async function autoFillRow(rowId) {
-        const row = document.getElementById(rowId);
-        const now = new Date();
-        const timeStr = now.getHours().toString().padStart(2, '0') + ":" + 
-                        now.getMinutes().toString().padStart(2, '0');
-        row.querySelector('.t-time').value = timeStr;
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                // NWS API throws errors if coordinates have more than 4 decimal places of precision
-                const latApi = pos.coords.latitude.toFixed(4);
-                const lonApi = pos.coords.longitude.toFixed(4);
-
-                // Preserve full resolution for visual telemetry entry
-                row.querySelector('.t-lat').value = pos.coords.latitude.toFixed(6);
-                row.querySelector('.t-lon').value = pos.coords.longitude.toFixed(6);
-                
-                try {
-                    // Step 1: Map coordinates to the regional grid metadata
-                    const pointsResponse = await fetch(`https://api.weather.gov/points/${latApi},${lonApi}`);
-                    if (!pointsResponse.ok) throw new Error("Could not match coordinates to NWS grid.");
-                    const pointsData = await pointsResponse.json();
-                    
-                    // Step 2: Grab the list of close-range weather observation stations
-                    const stationsUrl = pointsData.properties.observationStations;
-                    const stationsResponse = await fetch(stationsUrl);
-                    if (!stationsResponse.ok) throw new Error("Could not fetch surrounding observation stations.");
-                    const stationsData = await stationsResponse.json();
-                    
-                    if (!stationsData.features || stationsData.features.length === 0) {
-                        throw new Error("No active NWS stations found within range.");
-                    }
-                    
-                    // Step 3: Call the latest metrics from the closest operational station
-                    const closestStationId = stationsData.features[0].id;
-                    const obsResponse = await fetch(`${closestStationId}/observations/latest`);
-                    if (!obsResponse.ok) throw new Error("Failed to query telemetry from observation station.");
-                    const obsData = await obsResponse.json();
-                    const props = obsData.properties;
-                    
-                    // Step 4: Map values. NWS serving observations provides metrics natively in Celsius and km/h.
-                    const temp = props.temperature && props.temperature.value !== null ? props.temperature.value.toFixed(1) : '';
-                    const windSpd = props.windSpeed && props.windSpeed.value !== null ? (props.windSpeed.value / 3.6).toFixed(2) : '';
-                    const windDir = props.windDirection && props.windDirection.value !== null ? props.windDirection.value + "°" : '';
-                    
-                    row.querySelector('.t-temp').value = temp;
-                    row.querySelector('.t-wind-spd').value = windSpd;
-                    row.querySelector('.t-wind-dir').value = windDir;
-                    
-                    saveData(); // Commit updates to localStorage
-                } catch (e) {
-                    alert("Weather fetch failed: " + e.message);
-                }
-            }, (err) => alert("Error getting location: " + err.message));
-        } else {
-            alert("Geolocation required.");
-        }
-    }
-
-    // 2. PERSISTENCE LOGIC: SAVE
-    function saveData() {
-        const fieldData = {
-            header: {
-                initials: document.getElementById('initials').value,
-                res: document.getElementById('res').value,
-                date: document.getElementById('fieldDate').value,
-                vpDay: document.getElementById('vpDay').value
-            },
-            rows: []
-        };
-
-        const rows = document.querySelectorAll('#tableBody tr');
-        rows.forEach(row => {
-            fieldData.rows.push({
-                transect: row.querySelector('.t-transect').value,
-                profile: row.querySelector('.t-profile').value,
-                depth: row.querySelector('.t-depth').value,
-                secchiDown: row.querySelector('.t-secchi-down').value,
-                secchiUp: row.querySelector('.t-secchi-up').value,
-                time: row.querySelector('.t-time').value,
-                lat: row.querySelector('.t-lat').value,
-                lon: row.querySelector('.t-lon').value,
-                temp: row.querySelector('.t-temp').value,
-                windSpd: row.querySelector('.t-wind-spd').value,
-                windDir: row.querySelector('.t-wind-dir').value
-            });
-        });
-
-        localStorage.setItem('fieldDataPro', JSON.stringify(fieldData));
-    }
-
-    // 3. PERSISTENCE LOGIC: LOAD
-    function loadData() {
-        const saved = localStorage.getItem('fieldDataPro');
-        if (saved) {
-            const data = JSON.parse(saved);
+    <div class="row g-3">
+      <div class="col-12 col-xl-5">
+        <!-- 1. Origin GPS Coordinates -->
+        <div class="card mb-3">
+          <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between py-2">
+            <span><i class="bi bi-crosshair me-1"></i> 1. Origin GPS Point</span>
+            <span id="gpsStatusBadge" class="badge bg-light text-dark">Ready</span>
+          </div>
+          <div class="card-body">
+            <div class="d-grid gap-2 mb-3">
+              <button type="button" id="btnGetGps" class="btn btn-outline-primary btn-touch fw-semibold">
+                <i class="bi bi-geo-alt me-2"></i>Acquire Current GPS Location
+              </button>
+            </div>
             
-            // Restore Header
-            document.getElementById('initials').value = data.header.initials || '';
-            document.getElementById('res').value = data.header.res || '';
-            document.getElementById('fieldDate').value = data.header.date || '';
-            document.getElementById('vpDay').value = data.header.vpDay || '';
+            <div class="row g-2">
+              <div class="col-12 col-sm-6">
+                <label for="originLat" class="form-label small fw-semibold mb-1">Latitude (°N)</label>
+                <input type="number" step="any" class="form-control mono-font" id="originLat" placeholder="e.g. 42.03078" required>
+              </div>
+              <div class="col-12 col-sm-6">
+                <label for="originLon" class="form-label small fw-semibold mb-1">Longitude (°E)</label>
+                <input type="number" step="any" class="form-control mono-font" id="originLon" placeholder="e.g. -93.63191" required>
+              </div>
+            </div>
 
-            // Restore Rows
-            if (data.rows && data.rows.length > 0) {
-                data.rows.forEach(row => addRow(row));
-            } else {
-                addRow(); // Default first row if storage empty
-            }
-        } else {
-            addRow(); // Default first row if no storage exists
+            <div id="gpsAccuracyBox" class="small text-muted mt-2 d-none">
+              <i class="bi bi-info-circle me-1"></i><span id="gpsAccuracyText">Accuracy: ±0 m</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Bearing and 10 Distances away -->
+        <div class="card mb-3">
+          <div class="card-header bg-dark text-white d-flex align-items-center justify-content-between py-2">
+            <span><i class="bi bi-compass me-1"></i> 2. Bearing & Range Distances</span>
+            <span class="badge bg-secondary">Meters</span>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label for="bearingInput" class="form-label small fw-bold">Direction / Bearing (0° to 360°)</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-compass"></i></span>
+                <input type="number" step="any" min="0" max="360" class="form-control" id="bearingInput" placeholder="e.g. 90 (East), 180 (South)" required>
+                <span class="input-group-text">deg (°)</span>
+              </div>
+              <div class="form-text">0° = North, 90° = East, 180° = South, 270° = West</div>
+            </div>
+
+            <label class="form-label small fw-bold mb-1">
+              Distance Offsets (Meters)
+              <span class="text-muted fw-normal">(Fill at least 1)</span>
+            </label>
+            <div class="row g-2 mb-3" id="distanceInputsContainer">
+              <!-- Dynamically populated 10 distance input boxes -->
+            </div>
+
+            <div class="d-grid gap-2">
+              <button type="button" id="btnCalculate" class="btn btn-success btn-touch fw-bold shadow-sm">
+                <i class="bi bi-calculator me-2"></i>Calculate & Store Points
+              </button>
+              <button type="button" id="btnClearInputs" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-eraser me-1"></i>Clear Distances
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-xl-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-white py-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+              <h2 class="h5 mb-0 fw-bold"><i class="bi bi-table text-primary me-2"></i>Stored Points Table</h2>
+              <small class="text-muted">Origin coordinates and calculated offset target points</small>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" id="btnExportCsv" class="btn btn-outline-success btn-sm btn-touch px-3" title="Export as CSV">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
+              </button>
+              <button type="button" id="btnConfirmClearAll" class="btn btn-outline-danger btn-sm btn-touch px-3" title="Clear table">
+                <i class="bi bi-trash3 me-1"></i>Clear All
+              </button>
+            </div>
+          </div>
+
+          <div class="card-body p-0">
+            <div class="table-container">
+              <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0" id="pointsTable">
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      <th scope="col">Timestamp</th>
+                      <th scope="col">Origin</th>
+                      <th scope="col">Bearing</th>
+                      <th scope="col">Distance</th>
+                      <th scope="col">Calculated Destination</th>
+                      <th scope="col" class="text-center">Google Maps</th>
+                      <th scope="col" class="text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tableBody">
+                    <!-- Populated via JavaScript -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="emptyState" class="text-center py-5 px-3">
+              <i class="bi bi-geo display-4 text-muted mb-2 d-block"></i>
+              <h6 class="text-secondary fw-bold">No points calculated yet</h6>
+              <p class="text-muted small mb-0">Fill in the origin coordinates, bearing, and at least one distance to calculate range points.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Single Row Delete Safety Modal -->
+  <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="deleteModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Delete Point</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-1">Are you sure you want to delete this specific test point?</p>
+          <div class="p-2 my-2 bg-light rounded mono-font small border" id="deleteModalDetails"></div>
+          <p class="text-muted small mb-0">This entry will be permanently removed from local storage.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmDeleteRow">
+            <i class="bi bi-trash3 me-1"></i>Delete Point
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clear All Safety Modal -->
+  <div class="modal fade" id="clearAllModal" tabindex="-1" aria-labelledby="clearAllModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="clearAllModalLabel"><i class="bi bi-trash3-fill me-2"></i>Clear All Data</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-1">Are you sure you want to delete <strong>all saved points</strong>?</p>
+          <p class="text-danger small mb-0 fw-semibold">This will reset your local database and cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="btnExecuteClearAll">
+            <i class="bi bi-trash me-1"></i>Clear Everything
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
+    <div id="liveToast" class="toast align-items-center text-bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="toastMessage">Notification</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const STORAGE_KEY = 'range_test_calculator_records';
+    const EARTH_RADIUS_METERS = 6371000;
+
+    let pointsList = [];
+    let pendingDeleteId = null;
+
+    let deleteModalInstance = null;
+    let clearAllModalInstance = null;
+    let toastInstance = null;
+
+    /**
+     * Spherical Great-Circle destination computation:
+     * φ2 = asin(sin φ1 ⋅ cos δ + cos φ1 ⋅ sin δ ⋅ cos θ)
+     * λ2 = λ1 + atan2(sin θ ⋅ sin δ ⋅ cos φ1, cos δ − sin φ1 ⋅ sin φ2)
+     */
+    function calculateDestinationPoint(lat1, lon1, bearingDeg, distanceMeters) {
+      const toRad = deg => (deg * Math.PI) / 180;
+      const toDeg = rad => (rad * 180) / Math.PI;
+
+      const phi1 = toRad(lat1);
+      const lambda1 = toRad(lon1);
+      const theta = toRad(bearingDeg);
+      const delta = distanceMeters / EARTH_RADIUS_METERS;
+
+      const phi2 = Math.asin(
+        Math.sin(phi1) * Math.cos(delta) +
+        Math.cos(phi1) * Math.sin(delta) * Math.cos(theta)
+      );
+
+      const y = Math.sin(theta) * Math.sin(delta) * Math.cos(phi1);
+      const x = Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2);
+      let lambda2 = lambda1 + Math.atan2(y, x);
+
+      // Normalize longitude to -180 .. +180
+      lambda2 = ((lambda2 + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+
+      return {
+        lat: Number(toDeg(phi2).toFixed(7)),
+        lon: Number(toDeg(lambda2).toFixed(7))
+      };
+    }
+
+    /**
+     * Direct Google Maps Single Pin URL
+     */
+    function getSinglePinUrl(lat, lon) {
+      return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+    }
+
+    /**
+     * Constructs a direct Google Maps URL plotting the original point AND all destination points.
+     * Uses the Google Maps waypoints parameter to load the entire point set in one map view.
+     */
+    function buildMultiPointGoogleMapsUrl(originLat, originLon, targetPoints) {
+      if (!originLat || !originLon) return null;
+
+      if (!targetPoints || targetPoints.length === 0) {
+        return getSinglePinUrl(originLat, originLon);
+      }
+
+      if (targetPoints.length === 1) {
+        const dest = targetPoints[0];
+        return `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLon}&destination=${dest.destLat},${dest.destLon}&travelmode=walking`;
+      }
+
+      // First point is origin, last point is final destination, intermediate points are waypoints
+      const lastPoint = targetPoints[targetPoints.length - 1];
+      const waypoints = targetPoints.slice(0, -1).map(pt => `${pt.destLat},${pt.destLon}`).join('|');
+
+      return `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLon}&destination=${lastPoint.destLat},${lastPoint.destLon}&waypoints=${encodeURIComponent(waypoints)}&travelmode=walking`;
+    }
+
+    function buildDistanceInputs() {
+      const container = document.getElementById('distanceInputsContainer');
+      container.innerHTML = '';
+      for (let i = 1; i <= 10; i++) {
+        const col = document.createElement('div');
+        col.className = 'col-6 col-sm-6';
+        col.innerHTML = `
+          <div class="input-group input-group-sm">
+            <span class="input-group-text distance-label">D${i}</span>
+            <input type="number" step="any" min="0.1" class="form-control distance-input" 
+                   id="dist_${i}" placeholder="m" aria-label="Distance ${i} in meters">
+          </div>
+        `;
+        container.appendChild(col);
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        pointsList = data ? JSON.parse(data) : [];
+        if (!Array.isArray(pointsList)) pointsList = [];
+      } catch (err) {
+        console.error("Storage read error:", err);
+        pointsList = [];
+      }
+      renderTable();
+      updateMapBanner();
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(pointsList));
+      } catch (err) {
+        console.error("Storage write error:", err);
+        showToast("Storage quota exceeded.", "danger");
+      }
+      renderTable();
+      updateMapBanner();
+    }
+
+    function updateMapBanner() {
+      const pillsContainer = document.getElementById('pointsSummaryPills');
+      const storageBadge = document.getElementById('storageBadge');
+      storageBadge.innerHTML = `<i class="bi bi-database me-1"></i>${pointsList.length} Stored Point${pointsList.length === 1 ? '' : 's'}`;
+
+      if (pointsList.length === 0) {
+        pillsContainer.innerHTML = '<span class="text-muted small">No active test points loaded yet.</span>';
+        return;
+      }
+
+      const activeOrigin = pointsList[0];
+      let html = `
+        <span class="pin-pill bg-primary text-white border-0">
+          <i class="bi bi-crosshair me-1"></i>Origin (${activeOrigin.originLat.toFixed(5)}, ${activeOrigin.originLon.toFixed(5)})
+        </span>
+      `;
+
+      pointsList.slice(0, 6).forEach((pt, idx) => {
+        html += `
+          <span class="pin-pill">
+            <span class="point-badge badge-target me-1">${pointsList.length - idx}</span>
+            ${Number(pt.distance).toLocaleString()}m (${pt.bearing}°)
+          </span>
+        `;
+      });
+
+      if (pointsList.length > 6) {
+        html += `<span class="pin-pill text-muted">+${pointsList.length - 6} more</span>`;
+      }
+
+      pillsContainer.innerHTML = html;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      const emptyState = document.getElementById('emptyState');
+      const table = document.getElementById('pointsTable');
+
+      tbody.innerHTML = '';
+
+      if (pointsList.length === 0) {
+        emptyState.classList.remove('d-none');
+        table.classList.add('d-none');
+        return;
+      }
+
+      emptyState.classList.add('d-none');
+      table.classList.remove('d-none');
+
+      pointsList.forEach((pt, index) => {
+        const row = document.createElement('tr');
+        const gMapPinUrl = getSinglePinUrl(pt.destLat, pt.destLon);
+        const pinNumber = pointsList.length - index;
+
+        row.innerHTML = `
+          <td class="fw-semibold small text-muted">
+            <span class="point-badge badge-target">${pinNumber}</span>
+          </td>
+          <td class="small text-nowrap">${escapeHtml(pt.timestamp)}</td>
+          <td class="mono-font small">
+            <div>${pt.originLat.toFixed(6)}°</div>
+            <div class="text-muted">${pt.originLon.toFixed(6)}°</div>
+          </td>
+          <td><span class="badge bg-light text-dark border">${pt.bearing}°</span></td>
+          <td class="fw-bold">${Number(pt.distance).toLocaleString()} m</td>
+          <td class="mono-font small text-primary fw-semibold">
+            <div>${pt.destLat.toFixed(6)}°</div>
+            <div>${pt.destLon.toFixed(6)}°</div>
+          </td>
+          <td class="text-center text-nowrap">
+            <a href="${gMapPinUrl}" target="_blank" rel="noopener noreferrer" 
+               class="btn btn-outline-primary btn-sm px-2" title="Open this point on Google Maps">
+              <i class="bi bi-google me-1"></i>View Pin
+            </a>
+          </td>
+          <td class="text-center text-nowrap">
+            <button type="button" class="btn btn-outline-secondary btn-sm me-1" 
+                    onclick="copyCoords(${pt.destLat}, ${pt.destLon})" title="Copy coordinates">
+              <i class="bi bi-clipboard"></i>
+            </button>
+            <button type="button" class="btn btn-outline-danger btn-sm" 
+                    onclick="promptDelete('${pt.id}')" title="Delete record">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function handleGetGps() {
+      const statusBadge = document.getElementById('gpsStatusBadge');
+      const accuracyBox = document.getElementById('gpsAccuracyBox');
+      const accuracyText = document.getElementById('gpsAccuracyText');
+      const btnGetGps = document.getElementById('btnGetGps');
+
+      if (!('geolocation' in navigator)) {
+        statusBadge.className = 'badge bg-danger text-white';
+        statusBadge.textContent = 'Not Supported';
+        showToast('Geolocation is not supported in this browser. Please enter manually.', 'warning');
+        return;
+      }
+
+      btnGetGps.disabled = true;
+      btnGetGps.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Acquiring GPS...';
+      statusBadge.className = 'badge bg-warning text-dark';
+      statusBadge.textContent = 'Locating...';
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          const accuracy = position.coords.accuracy;
+
+          document.getElementById('originLat').value = lat.toFixed(7);
+          document.getElementById('originLon').value = lon.toFixed(7);
+
+          statusBadge.className = 'badge bg-success text-white';
+          statusBadge.textContent = 'Acquired';
+          accuracyBox.classList.remove('d-none');
+          accuracyText.textContent = `Accuracy: ±${Math.round(accuracy)} m`;
+
+          btnGetGps.disabled = false;
+          btnGetGps.innerHTML = '<i class="bi bi-check-circle me-2"></i>GPS Acquired (Refresh)';
+          showToast(`Position acquired (±${Math.round(accuracy)}m)`, 'success');
+        },
+        (error) => {
+          btnGetGps.disabled = false;
+          btnGetGps.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Retry GPS';
+          statusBadge.className = 'badge bg-danger text-white';
+          statusBadge.textContent = 'Error';
+
+          let msg = 'Failed to get location. Please type coordinates manually.';
+          if (error.code === error.PERMISSION_DENIED) {
+            msg = 'Location permission was denied. Enter Lat/Lon manually.';
+          }
+          showToast(msg, 'danger');
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      );
+    }
+
+    function handleCalculatePoints() {
+      const latVal = parseFloat(document.getElementById('originLat').value);
+      const lonVal = parseFloat(document.getElementById('originLon').value);
+      const bearingVal = parseFloat(document.getElementById('bearingInput').value);
+
+      if (isNaN(latVal) || latVal < -90 || latVal > 90) {
+        showToast('Please enter a valid Latitude between -90 and 90°', 'warning');
+        document.getElementById('originLat').focus();
+        return;
+      }
+
+      if (isNaN(lonVal) || lonVal < -180 || lonVal > 180) {
+        showToast('Please enter a valid Longitude between -180 and 180°', 'warning');
+        document.getElementById('originLon').focus();
+        return;
+      }
+
+      if (isNaN(bearingVal) || bearingVal < 0 || bearingVal > 360) {
+        showToast('Please enter a valid Bearing between 0° and 360°', 'warning');
+        document.getElementById('bearingInput').focus();
+        return;
+      }
+
+      const distanceInputs = document.querySelectorAll('.distance-input');
+      const validDistances = [];
+
+      distanceInputs.forEach((input, idx) => {
+        const val = parseFloat(input.value);
+        if (!isNaN(val) && val > 0) {
+          validDistances.push({ index: idx + 1, distance: val });
         }
+      });
+
+      if (validDistances.length === 0) {
+        showToast('Enter at least one distance in meters.', 'warning');
+        return;
+      }
+
+      const now = new Date();
+      const timestamp = now.toLocaleString();
+
+      const newRecords = validDistances.map(item => {
+        const dest = calculateDestinationPoint(latVal, lonVal, bearingVal, item.distance);
+        return {
+          id: 'pt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          timestamp: timestamp,
+          originLat: latVal,
+          originLon: lonVal,
+          bearing: bearingVal,
+          distance: item.distance,
+          destLat: dest.lat,
+          destLon: dest.lon
+        };
+      });
+
+      pointsList = [...newRecords, ...pointsList];
+      saveToStorage();
+      showToast(`Calculated and stored ${newRecords.length} range point${newRecords.length > 1 ? 's' : ''}!`, 'success');
     }
 
-    // 4. CLEAR DATA (Utility)
-    function clearAllData() {
-        if(confirm("This will permanently delete all saved entries on this device. Continue?")) {
-            localStorage.removeItem('fieldDataPro');
-            location.reload();
+    function openAllInGoogleMaps() {
+      if (pointsList.length === 0) {
+        // Fallback to origin if filled
+        const latVal = parseFloat(document.getElementById('originLat').value);
+        const lonVal = parseFloat(document.getElementById('originLon').value);
+        if (!isNaN(latVal) && !isNaN(lonVal)) {
+          window.open(getSinglePinUrl(latVal, lonVal), '_blank', 'noopener,noreferrer');
+          return;
         }
+        showToast('No points calculated yet. Calculate points first.', 'warning');
+        return;
+      }
+
+      const primaryOrigin = pointsList[0];
+      const url = buildMultiPointGoogleMapsUrl(primaryOrigin.originLat, primaryOrigin.originLon, pointsList);
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
     }
 
-    function exportCSV() {
-        const resName = document.getElementById('res').value.trim() || "UnknownRes";
-        const entryDate = document.getElementById('fieldDate').value || "NoDate";
-        const safeRes = resName.replace(/[/\\?%*:|"<>]/g, '-');
+    function exportToKml() {
+      if (pointsList.length === 0) {
+        showToast('No saved points to export to KML.', 'warning');
+        return;
+      }
 
-        let csv = [];
-        csv.push("Initials,Res,Date,VP Day Num");
-        csv.push(`${document.getElementById('initials').value},${resName},${entryDate},${document.getElementById('vpDay').value}`);
-        csv.push(""); 
-        csv.push("Transect,Profile,Depth(m),Secchi Down,Secchi Up,Time,Latitude,Longitude,Air Temp(C),Wind Spd(m/s),Wind Dir");
+      const primaryOrigin = pointsList[0];
+      let placemarks = `
+      <Placemark>
+        <name>Origin Location</name>
+        <description>Starting GPS Origin: ${primaryOrigin.originLat}, ${primaryOrigin.originLon}</description>
+        <Point>
+          <coordinates>${primaryOrigin.originLon},${primaryOrigin.originLat},0</coordinates>
+        </Point>
+      </Placemark>`;
 
-        const rows = document.querySelectorAll('#tableBody tr');
-        rows.forEach(row => {
-            const inputs = row.querySelectorAll('input');
-            const rowData = Array.from(inputs).map(input => `"${input.value.replace('°', '')}"`);
-            csv.push(rowData.join(","));
-        });
+      pointsList.forEach((pt, index) => {
+        const pinNum = pointsList.length - index;
+        placemarks += `
+      <Placemark>
+        <name>Test Point #${pinNum} (${pt.distance}m @ ${pt.bearing}°)</name>
+        <description>Calculated destination: ${pt.destLat}, ${pt.destLon}&#10;Offset: ${pt.distance}m at bearing ${pt.bearing}°&#10;Timestamp: ${pt.timestamp}</description>
+        <Point>
+          <coordinates>${pt.destLon},${pt.destLat},0</coordinates>
+        </Point>
+      </Placemark>`;
+      });
 
-        const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
-        const downloadLink = document.createElement("a");
-        downloadLink.download = `${safeRes}_${entryDate}.csv`;
-        downloadLink.href = window.URL.createObjectURL(csvFile);
-        downloadLink.style.display = "none";
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
+      const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Range Test Points Pins</name>
+    <description>Calculated range test points from origin location</description>
+    ${placemarks}
+  </Document>
+</kml>`;
+
+      const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml;charset=utf-8;' });
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const filename = `range test points ${yyyy}-${mm}-${dd}.kml`;
+
+      downloadBlob(blob, filename);
+      showToast(`KML downloaded. Import directly into Google My Maps or Google Earth.`, 'success');
     }
-</script>
 
+    function copyMultiPointMapLink() {
+      if (pointsList.length === 0) {
+        showToast('No points calculated yet.', 'warning');
+        return;
+      }
+      const primaryOrigin = pointsList[0];
+      const url = buildMultiPointGoogleMapsUrl(primaryOrigin.originLat, primaryOrigin.originLon, pointsList);
+      if (copyTextFallback(url)) {
+        showToast('Google Maps multi-point URL copied to clipboard!', 'info');
+      } else {
+        showToast('Failed to copy link.', 'warning');
+      }
+    }
+
+    function exportToCsv() {
+      if (pointsList.length === 0) {
+        showToast('No saved points to export.', 'warning');
+        return;
+      }
+
+      const headers = [
+        "Timestamp",
+        "Origin Latitude",
+        "Origin Longitude",
+        "Bearing (Degrees)",
+        "Distance (Meters)",
+        "Destination Latitude",
+        "Destination Longitude",
+        "Google Maps Pin URL"
+      ];
+
+      const rows = pointsList.map(item => [
+        `"${item.timestamp}"`,
+        item.originLat,
+        item.originLon,
+        item.bearing,
+        item.distance,
+        item.destLat,
+        item.destLon,
+        `"${getSinglePinUrl(item.destLat, item.destLon)}"`
+      ]);
+
+      const csvData = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const filename = `range test points ${yyyy}-${mm}-${dd}.csv`;
+
+      downloadBlob(blob, filename);
+      showToast(`Exported ${pointsList.length} points to ${filename}`, 'success');
+    }
+
+    function downloadBlob(blob, filename) {
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function promptDelete(id) {
+      pendingDeleteId = id;
+      const point = pointsList.find(p => p.id === id);
+      const detailsEl = document.getElementById('deleteModalDetails');
+
+      if (point) {
+        detailsEl.innerHTML = `
+          <strong>Bearing:</strong> ${point.bearing}° | <strong>Distance:</strong> ${point.distance} m<br>
+          <strong>Destination:</strong> ${point.destLat}, ${point.destLon}<br>
+          <span class="text-muted">${point.timestamp}</span>
+        `;
+      }
+      deleteModalInstance.show();
+    }
+
+    function confirmDeleteRow() {
+      if (!pendingDeleteId) return;
+      pointsList = pointsList.filter(item => item.id !== pendingDeleteId);
+      saveToStorage();
+      deleteModalInstance.hide();
+      pendingDeleteId = null;
+      showToast('Point record deleted.', 'secondary');
+    }
+
+    function executeClearAll() {
+      pointsList = [];
+      saveToStorage();
+      clearAllModalInstance.hide();
+      showToast('All saved points have been cleared.', 'secondary');
+    }
+
+    function copyCoords(lat, lon) {
+      const text = `${lat}, ${lon}`;
+      if (copyTextFallback(text)) {
+        showToast(`Copied ${text} to clipboard!`, 'info');
+      }
+    }
+
+    function copyTextFallback(text) {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      let success = false;
+      try {
+        success = document.execCommand('copy');
+      } catch (err) {
+        success = false;
+      }
+      document.body.removeChild(textArea);
+      return success;
+    }
+
+    function showToast(message, type = 'info') {
+      const toastEl = document.getElementById('liveToast');
+      const msgEl = document.getElementById('toastMessage');
+      toastEl.className = `toast align-items-center text-bg-${type} border-0`;
+      msgEl.textContent = message;
+
+      if (!toastInstance) {
+        toastInstance = new bootstrap.Toast(toastEl, { delay: 3500 });
+      }
+      toastInstance.show();
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      buildDistanceInputs();
+
+      deleteModalInstance = new bootstrap.Modal(document.getElementById('deleteModal'));
+      clearAllModalInstance = new bootstrap.Modal(document.getElementById('clearAllModal'));
+
+      document.getElementById('btnGetGps').addEventListener('click', handleGetGps);
+      document.getElementById('btnCalculate').addEventListener('click', handleCalculatePoints);
+      document.getElementById('btnClearInputs').addEventListener('click', () => {
+        document.querySelectorAll('.distance-input').forEach(i => i.value = '');
+        showToast('Cleared distance fields.', 'secondary');
+      });
+
+      // Google Maps master actions
+      document.getElementById('btnOpenAllInGoogleMaps').addEventListener('click', openAllInGoogleMaps);
+      document.getElementById('btnExportKml').addEventListener('click', exportToKml);
+      document.getElementById('btnCopyMapLink').addEventListener('click', copyMultiPointMapLink);
+
+      // CSV Export
+      document.getElementById('btnExportCsv').addEventListener('click', exportToCsv);
+
+      // Clear & Delete Handlers
+      document.getElementById('btnConfirmClearAll').addEventListener('click', () => {
+        if (pointsList.length === 0) {
+          showToast('No points to clear.', 'secondary');
+          return;
+        }
+        clearAllModalInstance.show();
+      });
+
+      document.getElementById('btnExecuteClearAll').addEventListener('click', executeClearAll);
+      document.getElementById('btnConfirmDeleteRow').addEventListener('click', confirmDeleteRow);
+
+      // Load stored points
+      loadFromStorage();
+    });
+  </script>
 </body>
 </html>
